@@ -34,5 +34,25 @@
       <button type="button" class="chip" data-fill="현대차">현대차</button>
     </div>
   </form>
+
+  {# F603 크롤링 진행 상황 스트리밍 출력 #}
+  <div id="progress" class="task" hidden aria-live="polite">
+    <div class="task-head">
+      <span class="mark mark-lg is-filling" aria-hidden="true"></span>
+      <div class="task-text">
+        <p class="task-title" id="progress-current">댓글 수집 중...</p>
+        <p class="task-sub">AI가 데이터를 채우고 있어요 · 창을 닫지 말아 주세요</p>
+      </div>
+      <span class="task-percent" id="progress-percent">0%</span>
+    </div>
+    <div class="bar"><span class="bar-fill" id="progress-bar"></span></div>
+    <ol id="progress-log" class="task-log"></ol>
+  </div>
+</section>
+
+<section class="block">
+  <h2 class="block-title">데이터가 채워지는 과정</h2>
+  <p class="block-desc">검색 한 번으로 다섯 단계가 차례로 진행돼요. 검수 단계에서는 직접 확인한 뒤 다음으로 넘어가요.</p>
+  {% include 'comments/_steps.html' with current=0 id='flow-steps' %}
 </section>
 {% endblock %}

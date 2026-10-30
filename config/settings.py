@@ -127,3 +127,12 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ---------------------------------------------------------------------------
+# 크롤링 설정
+# ---------------------------------------------------------------------------
+# False 로 바꾸면 크롬 창이 직접 뜨면서 크롤링 과정을 눈으로 확인할 수 있다.
+CRAWLER_HEADLESS = os.getenv('CRAWLER_HEADLESS', 'True').lower() in ('1', 'true', 'yes')
+# 수집할 커뮤니티 댓글 개수 (F604: 20개)
+CRAWLER_COMMENT_LIMIT = int(os.getenv('CRAWLER_COMMENT_LIMIT', '20'))

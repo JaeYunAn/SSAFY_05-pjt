@@ -1,0 +1,44 @@
+{% load chaeum %}
+{% comment %}
+  단계별 데이터 증강 과정
+    current : 진행 중인 단계 (0 = 시작 전, 1~5 = 진행 중, 6 = 모두 완료)
+    compact : 작은 크기로 표시 (검수·결과 화면 상단)
+    n1~n5   : 넘기면 단계 설명 대신 해당 단계의 데이터 개수를 보여준다.
+{% endcomment %}
+<ol class="steps{% if compact %} steps-compact{% endif %}"{% if id %} id="{{ id }}"{% endif %}>
+  <li class="step{% if current > 1 %} is-done{% elif current == 1 %} is-active{% endif %}" data-step="collect">
+    <span class="step-dot"><span class="step-num">1</span>{% icon 'check' 14 %}</span>
+    <span class="step-name">수집</span>
+    {% if n1 is not None %}<span class="step-desc">댓글 {{ n1 }}개</span>
+    {% elif compact %}<span class="step-desc">커뮤니티 댓글</span>
+    {% else %}<span class="step-more">토스증권에서 종목을 찾아 커뮤니티 댓글 {{ limit }}개를 모아요</span>{% endif %}
+  </li>
+  <li class="step{% if current > 2 %} is-done{% elif current == 2 %} is-active{% endif %}" data-step="preprocess">
+    <span class="step-dot"><span class="step-num">2</span>{% icon 'check' 14 %}</span>
+    <span class="step-name">전처리</span>
+    {% if n2 is not None %}<span class="step-desc">{{ n2 }}개 남음</span>
+    {% elif compact %}<span class="step-desc">패턴 정리 · 길이 필터</span>
+    {% else %}<span class="step-more">URL·ㅋㅋ·이모지 같은 불필요한 패턴을 지우고 5~76자 댓글만 남겨요</span>{% endif %}
+  </li>
+  <li class="step{% if current > 3 %} is-done{% elif current == 3 %} is-active{% endif %}" data-step="review">
+    <span class="step-dot"><span class="step-num">3</span>{% icon 'check' 14 %}</span>
+    <span class="step-name">검수</span>
+    {% if n3 is not None %}<span class="step-desc">{{ n3 }}개 확정</span>
+    {% elif compact %}<span class="step-desc">{% if current == 3 %}직접 확인하는 중{% else %}의심 댓글 확인{% endif %}</span>
+    {% else %}<span class="step-more">LLM과 욕설 키워드로 의심 댓글을 표시하면, 직접 읽고 제외할 댓글을 골라요</span>{% endif %}
+  </li>
+  <li class="step{% if current > 4 %} is-done{% elif current == 4 %} is-active{% endif %}" data-step="augment">
+    <span class="step-dot"><span class="step-num">4</span>{% icon 'check' 14 %}</span>
+    <span class="step-name">증강</span>
+    {% if n4 is not None %}<span class="step-desc">{{ n4 }}개 생성</span>
+    {% elif compact %}<span class="step-desc">AI 확장 문장 생성</span>
+    {% else %}<span class="step-more">GMS가 의미와 감정을 유지한 확장 문장을 댓글마다 하나씩 만들어요</span>{% endif %}
+  </li>
+  <li class="step{% if current > 5 %} is-done{% elif current == 5 %} is-active{% endif %}" data-step="integrate">
+    <span class="step-dot"><span class="step-num">5</span>{% icon 'check' 14 %}</span>
+    <span class="step-name">통합</span>
+    {% if n5 is not None %}<span class="step-desc">최종 {{ n5 }}개</span>
+    {% elif compact %}<span class="step-desc">저장 · AI 요약</span>
+    {% else %}<span class="step-more">정제·증강 데이터를 하나로 묶어 저장하고, AI 요약을 만들 수 있어요</span>{% endif %}
+  </li>
+</ol>
