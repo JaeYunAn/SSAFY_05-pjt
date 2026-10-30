@@ -56,3 +56,7 @@ class CommentAnalysis(models.Model):
             }
             for i, text in enumerate(self.candidate_comments)
         ]
+
+    def augmentation_pairs(self):
+        """결과 화면 비교 보기용: 정제 댓글과 그 댓글로 만든 증강 문장을 짝지어 반환"""
+        return list(zip(self.cleaned_comments, self.augmented_comments))

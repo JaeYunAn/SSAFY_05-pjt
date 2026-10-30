@@ -1,0 +1,131 @@
+{% extends 'comments/base.html' %}
+{% load chaeum %}
+
+{% block title %}{{ analysis.stock_name }} 댓글 분석 결과 · 채움{% endblock %}
+
+{% block crumbs %}
+<span class="crumb-sep">/</span>
+<span class="crumb is-current">✨ {{ analysis.stock_name }} 결과</span>
+{% endblock %}
+
+{% block actions %}
+<span class="topbar-time">{{ analysis.created_at|timesince }} 전 생성</span>
+{% if analysis.source_url %}
+  <a class="ghost-btn" href="{{ analysis.source_url }}" target="_blank" rel="noopener">{% icon 'external' 14 %}토스증권</a>
+{% endif %}
+{% endblock %}
+
+{% block page_class %}page-full{% endblock %}
+
+{% block page_head %}
+<header class="page-head">
+  <div class="page-icon" aria-hidden="true">✨</div>
+  <h1 class="page-title">{{ analysis.stock_name }} 댓글 분석 결과</h1>
+  <dl class="props">
+    <div class="prop">
+      <dt>{% icon 'search' %}검색어</dt>
+      <dd>'{{ analysis.query }}'</dd>
+    </div>
+    {% if analysis.stock_code %}
+      <div class="prop">
+        <dt>{% icon 'chart' %}종목 코드</dt>
+        <dd><code class="code">{{ analysis.stock_code }}</code></dd>
+      </div>
+    {% endif %}
+    <div class="prop">
+      <dt>{% icon 'status' %}상태</dt>
+      <dd><span class="tag tag-status tag-{{ analysis.status }}">{{ analysis.get_status_display }}</span></dd>
+    </div>
+    <div class="prop">
+      <dt>{% icon 'clock' %}생성 일시</dt>
+      <dd>{{ analysis.created_at|date:"Y-m-d H:i:s" }}</dd>
+    </div>
+  </dl>
+</header>
+{% endblock %}
+
+{% block content %}
+{% include 'comments/_steps.html' with current=5 compact=True n1=analysis.raw_comments|length n2=analysis.candidate_comments|length n3=analysis.cleaned_comments|length n4=analysis.augmented_comments|length %}
+
+<section class="block">
+  <h2 class="block-title">🗂️ 단계별 데이터</h2>
+  <div class="views" role="tablist" aria-label="데이터 보기 방식">
+    <button type="button" class="view-tab is-active" role="tab" aria-selected="true" data-view="board">{% icon 'board' 15 %}보드</button>
+    <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="compare">{% icon 'compare' 15 %}정제 ↔ 증강 비교</button>
+  </div>
+
+  <div class="view-panel" data-view-panel="board" role="tabpanel">
+    <div class="board">
+      <section class="lane lane-raw">
+        <header class="lane-head"><span class="dot dot-raw"></span><h3 class="lane-title">원본 데이터 ({{ analysis.raw_comments|length }}개)</h3></header>
+        <ol class="lane-list">
+          {% for comment in analysis.raw_comments %}
+            <li class="card reveal" style="--i: {{ forloop.counter0 }}">
+              <span class="card-num">{{ forloop.counter }}</span>
+              <p>{% if comment %}{{ comment }}{% else %}<span class="muted">(텍스트 없음)</span>{% endif %}</p>
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+
+      <section class="lane lane-cleaned">
+        <header class="lane-head">
+          <span class="dot dot-cleaned"></span>
+          <h3 class="lane-title">전처리 후 ({{ analysis.cleaned_comments|length }}개)</h3>
+          <span class="lane-sub">길이 {{ analysis.iqr_threshold.min_length }} ~ {{ analysis.iqr_threshold.max_length }}자</span>
+        </header>
+        <ol class="lane-list">
+          {% for comment in analysis.cleaned_comments %}
+            <li class="card reveal" style="--i: {{ forloop.counter0 }}"><span class="card-num">{{ forloop.counter }}</span><p>{{ comment }}</p></li>
+          {% endfor %}
+        </ol>
+      </section>
+
+      <section class="lane lane-augmented">
+        <header class="lane-head"><span class="dot dot-augmented"></span><h3 class="lane-title">증강 데이터 ({{ analysis.augmented_comments|length }}개)</h3></header>
+        <ol class="lane-list">
+          {% for comment in analysis.augmented_comments %}
+            <li class="card reveal" style="--i: {{ forloop.counter0 }}"><span class="card-num">{{ forloop.counter }}</span><p>{{ comment }}</p></li>
+          {% endfor %}
+        </ol>
+      </section>
+    </div>
+  </div>
+
+  <div class="view-panel" data-view-panel="compare" role="tabpanel" hidden>
+    <div class="compare">
+      <div class="compare-row compare-head">
+        <span>#</span>
+        <span><span class="tag tag-cleaned">정제</span> 다듬은 댓글</span>
+        <span></span>
+        <span><span class="tag tag-augmented">증강</span> AI가 채운 문장</span>
+      </div>
+      {% for cleaned, augmented in analysis.augmentation_pairs %}
+        <div class="compare-row reveal" style="--i: {{ forloop.counter0 }}">
+          <span class="compare-num">{{ forloop.counter }}</span>
+          <p class="compare-cell">{{ cleaned }}</p>
+          <span class="compare-arrow" aria-hidden="true">→</span>
+          <p class="compare-cell is-augmented">{{ augmented }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if analysis.review_removed or analysis.preprocess_removed %}
+    <details class="toggle">
+      <summary>
+        제거된 댓글 보기
+        <span class="muted">전처리 {{ analysis.preprocess_removed|length }}개 · 검수 제외 {{ analysis.review_removed|length }}개</span>
+      </summary>
+      <ul class="toggle-body reason-list">
+        {% for text in analysis.review_removed %}
+          <li><span class="tag tag-red">검수 제외</span>{{ text }}</li>
+        {% endfor %}
+        {% for item in analysis.preprocess_removed %}
+          <li><span class="tag tag-gray">{{ item.reason }}</span>{% if item.text %}{{ item.text }}{% else %}<span class="muted">(텍스트 없음)</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+</section>
+{% endblock %}

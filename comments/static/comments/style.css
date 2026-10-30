@@ -784,6 +784,130 @@ a.crumb:hover { background: var(--hover); }
 .action-bar .btn-primary { margin-left: auto; }
 
 /* ==========================================================================
+   결과 화면
+   ========================================================================== */
+/* 보기 전환 탭 */
+.views { display: flex; align-items: center; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.view-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.view-tab:hover { background: var(--hover); color: var(--text); }
+.view-tab.is-active { color: var(--text); font-weight: 600; }
+.view-tab::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--purple);
+  transform: scaleX(0);
+  transition: transform 0.3s var(--ease);
+}
+.view-tab.is-active::after { transform: scaleX(1); }
+.view-panel { animation: fade-in 0.35s var(--ease) both; }
+
+/* 보드 보기 */
+.board { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: 6px; }
+.lane { display: flex; flex-direction: column; min-width: 0; padding: 10px; border-radius: 14px; }
+.lane-raw { background: rgba(53, 49, 61, 0.035); }
+.lane-cleaned { background: #F4EDE2; }
+.lane-augmented { background: #F1ECFA; }
+.lane-final { background: #EFEBF0; }
+.lane-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 6px 12px; }
+.lane-title { margin: 0; font-size: 14px; font-weight: 650; }
+.lane-sub { color: var(--text-2); font-size: 12px; }
+.lane-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 600px;
+  margin: 0;
+  padding: 1px 3px 4px 1px;
+  overflow-y: auto;
+  list-style: none;
+}
+.card {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px rgba(53, 49, 61, 0.06), 0 1px 3px rgba(53, 49, 61, 0.06);
+  font-size: 13.5px;
+  line-height: 1.6;
+  transition: box-shadow 0.2s, transform 0.2s var(--ease);
+}
+.card:hover { box-shadow: 0 0 0 1px rgba(139, 120, 184, 0.4), 0 6px 16px rgba(53, 49, 61, 0.08); transform: translateY(-1px); }
+.card p { flex: 1; min-width: 0; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.card-num { min-width: 16px; padding-top: 1px; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.card-stacked { flex-direction: column; align-items: flex-start; gap: 6px; }
+.card-stacked .tag { height: 20px; font-size: 11.5px; }
+
+/* 정제 ↔ 증강 비교 보기 */
+.compare { border-top: 1px solid var(--line); }
+.compare-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 28px minmax(0, 1.25fr);
+  gap: 14px;
+  align-items: start;
+  padding: 14px 8px;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.15s;
+}
+.compare-row:not(.compare-head):hover { background: rgba(53, 49, 61, 0.025); }
+.compare-head { padding: 10px 8px; color: var(--text-2); font-size: 13px; }
+.compare-head > span { display: flex; align-items: center; gap: 8px; }
+.compare-num { color: var(--text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.compare-cell { font-size: 14px; line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; }
+.compare-cell.is-augmented { padding-left: 14px; border-left: 2px solid var(--lavender); }
+.compare-arrow { color: var(--purple); text-align: center; }
+
+/* ==========================================================================
+   로딩 오버레이 (증강 진행 중)
+   ========================================================================== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(53, 49, 61, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade-in 0.25s ease both;
+}
+.overlay-card {
+  width: min(420px, calc(100vw - 40px));
+  padding: 34px 30px 26px;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  animation: pop 0.4s var(--ease) both;
+}
+.overlay-title { margin: 20px 0 6px; font-size: 16px; font-weight: 700; }
+.overlay-sub { color: var(--text-2); font-size: 13.5px; }
+.dots { display: inline-flex; gap: 6px; margin-top: 18px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--lavender); animation: bounce 1.2s ease-in-out infinite; }
+.dots i:nth-child(2) { animation-delay: 0.15s; }
+.dots i:nth-child(3) { animation-delay: 0.3s; }
+
+/* ==========================================================================
    전환 효과
    ========================================================================== */
 .reveal { animation: rise 0.45s var(--ease) both; animation-delay: min(calc(var(--i, 0) * 30ms), 600ms); }

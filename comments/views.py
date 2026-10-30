@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import CommentAnalysis
 from .services.crawler import crawl_comments
-from .services.llm import find_inappropriate
+from .services.llm import augment_comments, find_inappropriate
 from .services.preprocess import find_profanity, preprocess_comments
 
 
@@ -95,7 +95,7 @@ def _crawl_stream(company_name):
 @require_http_methods(["GET", "POST"])
 def review(request, pk):
     """
-    부적절 댓글 직접 검수 -> 제외할 댓글을 확정하면 정제 댓글 목록으로 DB 에 저장한다.
+    부적절 댓글 직접 검수 -> 제외할 댓글을 확정하면 증강(F606) 후 DB 에 저장한다.
     """
     analysis = get_object_or_404(CommentAnalysis, pk=pk)
 
@@ -106,10 +106,15 @@ def review(request, pk):
                 excluded.add(int(value))
 
         cleaned = [t for i, t in enumerate(analysis.candidate_comments) if i not in excluded]
+
+        augmented = augment_comments(cleaned)
+
         analysis.review_removed = [t for i, t in enumerate(analysis.candidate_comments) if i in excluded]
         analysis.cleaned_comments = cleaned
+        analysis.augmented_comments = augmented
+        analysis.status = CommentAnalysis.Status.DONE
         analysis.save()
-        return redirect("comments:review", pk=pk)
+        return redirect("comments:result", pk=pk)
 
     items = analysis.review_items()
     return render(request, "comments/review.html", {
@@ -117,3 +122,11 @@ def review(request, pk):
         "items": items,
         "flagged_count": sum(item["flagged"] for item in items),
     })
+
+
+def result(request, pk):
+    """F607 원본 / 전처리 / 증강 / 최종 결과 통합 출력"""
+    analysis = get_object_or_404(CommentAnalysis, pk=pk)
+    if not analysis.is_done:
+        return redirect("comments:review", pk=pk)
+    return render(request, "comments/result.html", {"analysis": analysis})

@@ -202,3 +202,29 @@ if (reviewForm) {
   });
   updateCount();
 }
+
+// ---------------------------------------------------------------------------
+// 오래 걸리는 POST 요청(증강) 동안 로딩 화면 표시
+// ---------------------------------------------------------------------------
+document.querySelectorAll("button[data-loading]").forEach((button) => {
+  button.form.addEventListener("submit", () => {
+    document.getElementById("loading-text").textContent = button.dataset.loading;
+    document.getElementById("loading-overlay").hidden = false;
+    button.disabled = true;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 결과 화면: 보드 / 비교 보기 전환
+// ---------------------------------------------------------------------------
+const viewTabs = document.querySelectorAll("[data-view]");
+viewTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    viewTabs.forEach((other) => {
+      const active = other === tab;
+      other.classList.toggle("is-active", active);
+      other.setAttribute("aria-selected", String(active));
+      document.querySelector(`[data-view-panel="${other.dataset.view}"]`).hidden = !active;
+    });
+  });
+});

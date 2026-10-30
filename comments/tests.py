@@ -77,6 +77,11 @@ class LLMTests(TestCase):
         self.assertIn("JSON 배열", body["messages"][-1]["content"])
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer test-key")
 
+    @patch("comments.services.llm.requests.post")
+    def test_augment_falls_back_to_one_by_one(self, post):
+        post.side_effect = [fake_gms_response('["하나"]'), fake_gms_response("첫째"), fake_gms_response("둘째")]
+        self.assertEqual(llm.augment_comments(["원문1", "원문2"]), ["첫째", "둘째"])
+
     @override_settings(GMS_KEY="")
     def test_missing_key(self):
         with self.assertRaisesMessage(llm.LLMError, "GMS_KEY"):
