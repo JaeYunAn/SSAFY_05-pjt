@@ -41,3 +41,18 @@ class CommentAnalysis(models.Model):
     @property
     def is_done(self):
         return self.status == self.Status.DONE
+
+    def review_items(self):
+        """검수 화면용: 정제 후보 댓글마다 LLM/키워드 판정 여부를 붙여 반환"""
+        llm_flagged = set(self.moderation.get("llm_flagged", []))
+        keyword_flagged = set(self.moderation.get("keyword_flagged", []))
+        return [
+            {
+                "index": i,
+                "text": text,
+                "llm": i in llm_flagged,
+                "keyword": i in keyword_flagged,
+                "flagged": i in llm_flagged or i in keyword_flagged,
+            }
+            for i, text in enumerate(self.candidate_comments)
+        ]

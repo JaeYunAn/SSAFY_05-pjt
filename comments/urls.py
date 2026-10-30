@@ -7,4 +7,5 @@ app_name = "comments"
 urlpatterns = [
     path("", views.index, name="index"),
     path("company/", views.company, name="company"),
+    path("<int:pk>/review/", views.review, name="review"),
 ]

@@ -130,6 +130,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # ---------------------------------------------------------------------------
+# GMS (SSAFY 생성형 AI API) 설정 - OpenAI 호환 Chat Completions 엔드포인트
+# ---------------------------------------------------------------------------
+GMS_KEY = os.getenv('GMS_KEY', '')
+GMS_BASE_URL = os.getenv('GMS_BASE_URL', 'https://gms.ssafy.io/gmsapi/api.openai.com/v1')
+GMS_MODEL = os.getenv('GMS_MODEL', 'gpt-4o-mini')
+
+# ---------------------------------------------------------------------------
 # 크롤링 설정
 # ---------------------------------------------------------------------------
 # False 로 바꾸면 크롬 창이 직접 뜨면서 크롤링 과정을 눈으로 확인할 수 있다.

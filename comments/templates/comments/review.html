@@ -1,0 +1,126 @@
+{% extends 'comments/base.html' %}
+{% load chaeum %}
+
+{% block title %}{{ analysis.stock_name }} 댓글 검수 · 채움{% endblock %}
+
+{% block crumbs %}
+<span class="crumb-sep">/</span>
+<span class="crumb is-current">🔍 {{ analysis.stock_name }} 검수</span>
+{% endblock %}
+
+{% block actions %}
+<span class="topbar-time">{{ analysis.created_at|timesince }} 전 생성</span>
+{% if analysis.source_url %}
+  <a class="ghost-btn" href="{{ analysis.source_url }}" target="_blank" rel="noopener">{% icon 'external' 14 %}토스증권</a>
+{% endif %}
+{% endblock %}
+
+{% block page_class %}page-wide{% endblock %}
+
+{% block page_head %}
+<header class="page-head">
+  <div class="page-icon" aria-hidden="true">🔍</div>
+  <h1 class="page-title">{{ analysis.stock_name }} 댓글 검수</h1>
+  <dl class="props">
+    <div class="prop">
+      <dt>{% icon 'search' %}검색어</dt>
+      <dd>'{{ analysis.query }}' → 최상단 종목 <b>{{ analysis.stock_name }}</b>{% if analysis.stock_code %}<code class="code">{{ analysis.stock_code }}</code>{% endif %}</dd>
+    </div>
+    <div class="prop">
+      <dt>{% icon 'layers' %}데이터</dt>
+      <dd>원본 {{ analysis.raw_comments|length }}개 <span class="muted">→</span> 정제 후 {{ items|length }}개</dd>
+    </div>
+    <div class="prop">
+      <dt>{% icon 'alert' %}부적절 의심</dt>
+      <dd><span class="tag tag-red">{{ flagged_count }}개</span></dd>
+    </div>
+    <div class="prop">
+      <dt>{% icon 'status' %}상태</dt>
+      <dd><span class="tag tag-status tag-{{ analysis.status }}">{{ analysis.get_status_display }}</span></dd>
+    </div>
+    <div class="prop">
+      <dt>{% icon 'clock' %}생성 일시</dt>
+      <dd>{{ analysis.created_at|date:"Y-m-d H:i" }}</dd>
+    </div>
+  </dl>
+</header>
+{% endblock %}
+
+{% block content %}
+{% include 'comments/_steps.html' with current=3 compact=True n1=analysis.raw_comments|length n2=items|length %}
+
+<div class="callout callout-info" data-icon="💡">
+  <div>
+    <span class="tag tag-red">LLM 판정</span> 또는 <span class="tag tag-orange">욕설 키워드</span>가 붙은 댓글은
+    부적절 의심 댓글로 미리 체크되어 있어요. <b>체크된 댓글은 제외</b>되고 나머지만 증강·통합에 사용돼요.
+    직접 읽어 보고 체크를 조정한 뒤 진행해 주세요.
+  </div>
+</div>
+
+<form method="post" id="review-form">
+  {% csrf_token %}
+  <div class="review-grid">
+    <section class="sheet sheet-muted">
+      <header class="sheet-head">
+        <span class="dot dot-raw"></span>
+        <h2 class="sheet-title">원본 데이터</h2>
+        <span class="count">{{ analysis.raw_comments|length }}</span>
+      </header>
+      <ol class="plain-list">
+        {% for comment in analysis.raw_comments %}
+          <li class="reveal" style="--i: {{ forloop.counter0 }}">{% if comment %}{{ comment }}{% else %}<span class="muted">(텍스트 없음)</span>{% endif %}</li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section class="sheet">
+      <header class="sheet-head">
+        <span class="dot dot-cleaned"></span>
+        <h2 class="sheet-title">전처리 후 · 제외할 댓글 선택</h2>
+        <span class="count">{{ items|length }}</span>
+        <div class="sheet-tools">
+          <button type="button" class="chip chip-sm" data-select="flagged">의심 댓글만 선택</button>
+          <button type="button" class="chip chip-sm" data-select="none">전체 해제</button>
+        </div>
+      </header>
+      <ul class="todo-list">
+        {% for item in items %}
+          <li class="todo reveal{% if item.flagged %} is-flagged{% endif %}" style="--i: {{ forloop.counter0 }}">
+            <label>
+                <input type="checkbox" name="exclude" value="{{ item.index }}"
+                       data-flagged="{{ item.flagged|yesno:'1,0' }}" {% if item.flagged %}checked{% endif %}>
+              <span class="todo-box" aria-hidden="true">{% icon 'check' 12 %}</span>
+              <span class="todo-num">{{ forloop.counter }}</span>
+              <span class="todo-text">{{ item.text }}</span>
+              {% if item.flagged %}
+                <span class="todo-tags">
+                  {% if item.llm %}<span class="tag tag-red">LLM 판정</span>{% endif %}
+                  {% if item.keyword %}<span class="tag tag-orange">욕설 키워드</span>{% endif %}
+                </span>
+              {% endif %}
+            </label>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  {% if analysis.preprocess_removed %}
+    <details class="toggle">
+      <summary>전처리 단계에서 제거된 댓글 <span class="count">{{ analysis.preprocess_removed|length }}</span></summary>
+      <ul class="toggle-body reason-list">
+        {% for item in analysis.preprocess_removed %}
+          <li><span class="tag tag-gray">{{ item.reason }}</span>{% if item.text %}{{ item.text }}{% else %}<span class="muted">(텍스트 없음)</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+
+  <div class="action-bar">
+    <span id="exclude-count" class="action-count"></span>
+    <button type="submit" class="btn btn-primary btn-lg">
+      체크한 댓글 제외하고 정제 확정 <span class="arrow" aria-hidden="true">→</span>
+    </button>
+  </div>
+</form>
+{% endblock %}

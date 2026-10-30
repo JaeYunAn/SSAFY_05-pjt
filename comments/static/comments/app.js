@@ -175,3 +175,30 @@ if (searchForm) {
     }
   });
 }
+
+// ---------------------------------------------------------------------------
+// 검수 화면: 제외할 댓글 선택 도우미
+// ---------------------------------------------------------------------------
+const reviewForm = document.getElementById("review-form");
+if (reviewForm) {
+  const checkboxes = reviewForm.querySelectorAll("input[name='exclude']");
+  const excludeCount = document.getElementById("exclude-count");
+
+  const updateCount = () => {
+    const excluded = [...checkboxes].filter((cb) => cb.checked).length;
+    excludeCount.innerHTML = `제외 <b>${excluded}</b>개 · 사용 <b>${checkboxes.length - excluded}</b>개`;
+    checkboxes.forEach((cb) => cb.closest(".todo").classList.toggle("is-excluded", cb.checked));
+  };
+
+  checkboxes.forEach((cb) => cb.addEventListener("change", updateCount));
+  reviewForm.querySelectorAll("[data-select]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = btn.dataset.select;
+      checkboxes.forEach((cb) => {
+        cb.checked = mode === "flagged" && cb.dataset.flagged === "1";
+      });
+      updateCount();
+    });
+  });
+  updateCount();
+}

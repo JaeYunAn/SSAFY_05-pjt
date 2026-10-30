@@ -4,10 +4,14 @@ import threading
 
 from django.conf import settings
 from django.http import StreamingHttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 
 from .models import CommentAnalysis
 from .services.crawler import crawl_comments
+from .services.llm import find_inappropriate
+from .services.preprocess import find_profanity, preprocess_comments
 
 
 def index(request):
@@ -17,11 +21,11 @@ def index(request):
 
 def company(request):
     """
-    F601 회사명 입력 및 검증 -> F603·F604 크롤링을 실행하며 진행 상황을 스트리밍한다.
-    수집한 원본 댓글은 DB 에 저장한다.
+    F601 회사명 입력 및 검증 -> F603~F605 크롤링·전처리를 실행하며 진행 상황을 스트리밍한다.
 
     응답은 한 줄에 하나의 JSON 이벤트(NDJSON)이다.
-        {"type": "progress", "message": "...", "stage": "collect"}  진행 상황
+        {"type": "progress", "message": "...", "stage": "..."}  진행 상황 (stage: collect / preprocess / review)
+        {"type": "error",    "message": "..."}  예외 상황 안내 (F611)
     """
     company_name = request.GET.get("company_name", "").strip()
     if not company_name:
@@ -61,10 +65,55 @@ def _crawl_stream(company_name):
         yield _event("progress", message=message, stage="collect")
 
     crawled = outcome["result"]
-    CommentAnalysis.objects.create(
+
+    # 2) 정규식 기반 전처리 (F605)
+    yield _event("progress", message="전처리 중... (특수문자·불필요 패턴 제거, 길이 필터링)", stage="preprocess")
+    pre = preprocess_comments(crawled.comments)
+
+    # 3) 부적절 댓글 판정 (F605) - LLM 판정 + 욕설 키워드 감지, 최종 제외 여부는 사용자가 검수 화면에서 결정
+    yield _event("progress", message="GMS로 부적절한 댓글을 검사하는 중...", stage="review")
+    llm_flagged = find_inappropriate(pre.cleaned)
+
+    analysis = CommentAnalysis.objects.create(
         query=company_name,
         stock_name=crawled.stock_name,
         stock_code=crawled.stock_code,
         source_url=crawled.url,
         raw_comments=crawled.comments,
+        candidate_comments=pre.cleaned,
+        preprocess_removed=pre.removed,
+        moderation={
+            "llm_flagged": llm_flagged,
+            "keyword_flagged": find_profanity(pre.cleaned),
+        },
+        iqr_threshold=pre.iqr,
     )
+    yield _event("progress", message="수집·전처리 완료! 부적절 댓글 검수 화면으로 이동합니다.", stage="review")
+    yield _event("done", redirect=reverse("comments:review", args=[analysis.pk]))
+
+
+@require_http_methods(["GET", "POST"])
+def review(request, pk):
+    """
+    부적절 댓글 직접 검수 -> 제외할 댓글을 확정하면 정제 댓글 목록으로 DB 에 저장한다.
+    """
+    analysis = get_object_or_404(CommentAnalysis, pk=pk)
+
+    if request.method == "POST":
+        excluded = set()
+        for value in request.POST.getlist("exclude"):
+            if value.isdigit() and int(value) < len(analysis.candidate_comments):
+                excluded.add(int(value))
+
+        cleaned = [t for i, t in enumerate(analysis.candidate_comments) if i not in excluded]
+        analysis.review_removed = [t for i, t in enumerate(analysis.candidate_comments) if i in excluded]
+        analysis.cleaned_comments = cleaned
+        analysis.save()
+        return redirect("comments:review", pk=pk)
+
+    items = analysis.review_items()
+    return render(request, "comments/review.html", {
+        "analysis": analysis,
+        "items": items,
+        "flagged_count": sum(item["flagged"] for item in items),
+    })
