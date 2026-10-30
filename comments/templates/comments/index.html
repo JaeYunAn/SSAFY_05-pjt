@@ -57,4 +57,53 @@
   <p class="block-desc">검색 한 번으로 다섯 단계가 차례로 진행돼요. 검수 단계에서는 직접 확인한 뒤 다음으로 넘어가요.</p>
   {% include 'comments/_steps.html' with current=0 id='flow-steps' %}
 </section>
+
+<section class="block">
+  <div class="db-head">
+    <h2 class="block-title">📚 최근 분석</h2>
+    {% if recent %}<span class="count">{{ recent|length }}</span>{% endif %}
+  </div>
+  {% if recent %}
+    <div class="table-wrap">
+      <table class="db">
+        <thead>
+          <tr>
+            <th><span class="th-icon">Aa</span>종목</th>
+            <th><span class="th-icon">≡</span>검색어</th>
+            <th class="num"><span class="th-icon">#</span>원본</th>
+            <th class="num"><span class="th-icon">#</span>정제</th>
+            <th class="num"><span class="th-icon">#</span>증강</th>
+            <th><span class="th-icon">◎</span>상태</th>
+            <th><span class="th-icon">◷</span>생성 일시</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent %}
+            <tr class="reveal" style="--i: {{ forloop.counter0 }}">
+              <td class="db-title">
+                <a href="{% if item.is_done %}{% url 'comments:result' item.pk %}{% else %}{% url 'comments:review' item.pk %}{% endif %}">
+                  <span aria-hidden="true">{% if item.is_done %}✨{% else %}🔍{% endif %}</span>
+                  <span class="db-name">{{ item.stock_name }}</span>
+                  <span class="open-hint">열기</span>
+                </a>
+              </td>
+              <td class="muted">{{ item.query }}</td>
+              <td class="num">{{ item.raw_comments|length }}</td>
+              <td class="num">{% if item.is_done %}{{ item.cleaned_comments|length }}{% else %}<span class="muted">-</span>{% endif %}</td>
+              <td class="num">{% if item.is_done %}{{ item.augmented_comments|length }}{% else %}<span class="muted">-</span>{% endif %}</td>
+              <td><span class="tag tag-status tag-{{ item.status }}">{{ item.get_status_display }}</span></td>
+              <td class="muted">{{ item.created_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty">
+      <span class="mark mark-lg" aria-hidden="true"></span>
+      <p class="empty-title">아직 분석 기록이 없어요</p>
+      <p class="empty-desc">위 입력창에 회사 이름을 넣어 첫 데이터를 채워 보세요.</p>
+    </div>
+  {% endif %}
+</section>
 {% endblock %}

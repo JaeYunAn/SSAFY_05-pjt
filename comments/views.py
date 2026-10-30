@@ -17,8 +17,9 @@ from .services.preprocess import find_profanity, preprocess_comments
 
 
 def index(request):
-    """F601 회사명 입력 화면"""
-    return render(request, "comments/index.html", {"limit": settings.CRAWLER_COMMENT_LIMIT})
+    """F601 회사명 입력 화면 + 최근 분석 기록"""
+    recent = CommentAnalysis.objects.all()[:10]
+    return render(request, "comments/index.html", {"recent": recent, "limit": settings.CRAWLER_COMMENT_LIMIT})
 
 
 def company(request):

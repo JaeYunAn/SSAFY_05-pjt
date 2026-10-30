@@ -33,6 +33,21 @@
       </a>
     </nav>
 
+    <div class="side-section">
+      <p class="side-label">최근 분석</p>
+      {% for item in sidebar_analyses %}
+        <a class="side-link side-page{% if analysis.pk == item.pk %} is-active{% endif %}"
+           href="{% if item.is_done %}{% url 'comments:result' item.pk %}{% else %}{% url 'comments:review' item.pk %}{% endif %}"
+           title="'{{ item.query }}' 검색 · {{ item.created_at|date:'Y-m-d H:i' }}">
+          <span class="side-emoji" aria-hidden="true">{% if item.is_done %}✨{% else %}🔍{% endif %}</span>
+          <span class="side-text">{{ item.stock_name }}</span>
+          {% if not item.is_done %}<span class="side-badge">검수</span>{% endif %}
+        </a>
+      {% empty %}
+        <p class="side-empty">아직 분석한 페이지가 없어요</p>
+      {% endfor %}
+    </div>
+
     <div class="side-foot">
       <a class="side-link" href="{% url 'admin:index' %}">{% icon 'database' %}<span>관리자 페이지</span></a>
     </div>
