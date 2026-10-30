@@ -1,0 +1,38 @@
+{% extends 'comments/base.html' %}
+{% load chaeum %}
+
+{% block cover %}<div class="cover" aria-hidden="true"></div>{% endblock %}
+
+{% block page_head %}
+<header class="page-head page-head-hero">
+  <span class="mark mark-icon" aria-hidden="true"></span>
+  <h1 class="page-title">채움</h1>
+  <p class="page-desc">토스증권 커뮤니티의 댓글을 모으고, 다듬고, AI로 풍성하게 채워 드려요.</p>
+</header>
+{% endblock %}
+
+{% block content %}
+<section id="search" class="ask-section">
+  {# F601 회사명 입력 - 입력값이 없으면 app.js 에서 아무 동작도 하지 않는다 #}
+  <form id="search-form" class="ask" action="{% url 'comments:company' %}" method="get">
+    <label for="company_name" class="sr-only">회사 이름</label>
+    <div class="ask-box">
+      <span class="ask-icon">{% icon 'sparkles' 20 %}</span>
+      <input type="text" id="company_name" name="company_name" placeholder="어떤 회사의 댓글을 채워 볼까요?  예: 삼성전자"
+             autocomplete="off" maxlength="50">
+      <button type="submit" id="search-btn" class="ask-send" aria-label="검색" title="검색">
+        {% icon 'send' 20 %}<span class="spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+    <p class="ask-hint">회사명 일부만 입력해도 괜찮아요. 가장 위의 검색 결과를 자동으로 선택해요.</p>
+    <div class="chips">
+      <span class="chips-label">이렇게 시작해 보세요</span>
+      <button type="button" class="chip" data-fill="삼성전자">삼성전자</button>
+      <button type="button" class="chip" data-fill="SK하이닉스">SK하이닉스</button>
+      <button type="button" class="chip" data-fill="카카오">카카오</button>
+      <button type="button" class="chip" data-fill="NAVER">NAVER</button>
+      <button type="button" class="chip" data-fill="현대차">현대차</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
