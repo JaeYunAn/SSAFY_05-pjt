@@ -3,6 +3,7 @@ GMS(SSAFY 생성형 AI API) 클라이언트
 
   - F605 부적절한 댓글 판별   : find_inappropriate()
   - F606 텍스트 데이터 증강   : augment_comments()
+  - F610 댓글 요약 생성       : summarize_comments()
 
 GMS 는 OpenAI 호환 Chat Completions API 를 제공하므로 requests 로 직접 호출한다.
 API 키는 .env 의 GMS_KEY 로 설정한다.
@@ -116,3 +117,19 @@ def augment_comments(comments) -> list:
 def augment_one(comment: str) -> str:
     prompt = f"다음 댓글을 의미를 유지한 채 다른 표현으로 바꾼 문장 하나만 출력해.\n\n댓글: {comment}"
     return chat(prompt, system=AUGMENT_SYSTEM).strip().strip('"')
+
+
+def summarize_comments(stock_name: str, comments) -> str:
+    """수집된 전체 댓글의 주요 내용을 요약한다."""
+    comments = [c for c in comments if c and c.strip()]
+    if not comments:
+        raise LLMError("요약할 댓글이 없습니다.")
+    prompt = (
+        f"다음은 토스증권 '{stock_name}' 종목 커뮤니티에 올라온 댓글 {len(comments)}개야.\n"
+        "1) 전체적인 투자 심리(긍정/부정/중립)를 한 줄로,\n"
+        "2) 투자자들이 주로 이야기하는 핵심 주제를 '- ' 로 시작하는 3~5개 항목으로,\n"
+        "3) 마지막 줄에 '한줄 요약: ' 으로 시작하는 한 문장으로 정리해줘.\n"
+        "욕설이나 비속어는 순화해서 표현하고, 마크다운 굵게(**) 표시는 쓰지 마.\n\n"
+        f"{_numbered(comments)}"
+    )
+    return chat(prompt)

@@ -55,6 +55,23 @@
 {% block content %}
 {% include 'comments/_steps.html' with current=6 compact=True n1=analysis.raw_comments|length n2=analysis.candidate_comments|length n3=analysis.cleaned_comments|length n4=analysis.augmented_comments|length n5=analysis.final_comments|length %}
 
+{# F610 댓글 요약 - 버튼 클릭 시 GMS 로 요약 생성 #}
+<section class="ai-card">
+  {% csrf_token %}
+  <header class="ai-head">
+    <span class="ai-badge">{% icon 'sparkles' 20 %}</span>
+    <div class="ai-text">
+      <h2 class="ai-title">AI 댓글 요약</h2>
+      <p class="ai-sub">GMS가 수집된 댓글 {{ analysis.raw_comments|length }}개를 읽고 투자 심리와 핵심 주제를 정리해요</p>
+    </div>
+    <button type="button" id="summary-btn" class="btn btn-primary" data-url="{% url 'comments:summary' analysis.pk %}">
+      {% if analysis.summary %}요약 다시 생성{% else %}댓글 요약 보기{% endif %}
+    </button>
+  </header>
+  <div id="summary-box" class="summary-box" {% if not analysis.summary %}hidden{% endif %}>{{ analysis.summary }}</div>
+  <div id="summary-error" class="callout callout-error" role="alert" data-icon="⚠️" hidden></div>
+</section>
+
 {% with iqr=analysis.iqr_threshold %}
   <section class="block">
     <h2 class="block-title">📏 IQR 임계값 <span class="block-note">정제 텍스트 길이 기준</span></h2>

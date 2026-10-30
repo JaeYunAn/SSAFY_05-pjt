@@ -83,6 +83,12 @@ class LLMTests(TestCase):
         post.side_effect = [fake_gms_response('["하나"]'), fake_gms_response("첫째"), fake_gms_response("둘째")]
         self.assertEqual(llm.augment_comments(["원문1", "원문2"]), ["첫째", "둘째"])
 
+    @patch("comments.services.llm.requests.post")
+    def test_http_error_raises_llm_error(self, post):
+        post.return_value = fake_gms_response("unauthorized", status=401)
+        with self.assertRaises(llm.LLMError):
+            llm.summarize_comments("삼성전자", ["댓글"])
+
     @override_settings(GMS_KEY="")
     def test_missing_key(self):
         with self.assertRaisesMessage(llm.LLMError, "GMS_KEY"):
@@ -156,3 +162,11 @@ class ViewTests(TestCase):
         response = self.client.get(reverse("comments:review", args=[analysis.pk]))
         self.assertContains(response, 'value="1"\n                       data-flagged="1" checked')
         self.assertContains(response, "LLM 판정")
+
+    @patch("comments.views.summarize_comments", return_value="- 요약 결과")
+    def test_summary_is_saved(self, _summarize):
+        analysis = self._make_analysis()
+        response = self.client.post(reverse("comments:summary", args=[analysis.pk]))
+        self.assertEqual(response.json(), {"summary": "- 요약 결과"})
+        analysis.refresh_from_db()
+        self.assertEqual(analysis.summary, "- 요약 결과")

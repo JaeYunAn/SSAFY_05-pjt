@@ -6,12 +6,12 @@ from django.conf import settings
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import CommentAnalysis
 from .services.crawler import crawl_comments
 from .services.integration import build_final_dataset
-from .services.llm import augment_comments, find_inappropriate
+from .services.llm import augment_comments, find_inappropriate, summarize_comments
 from .services.preprocess import find_profanity, preprocess_comments
 
 
@@ -132,6 +132,18 @@ def result(request, pk):
     if not analysis.is_done:
         return redirect("comments:review", pk=pk)
     return render(request, "comments/result.html", {"analysis": analysis})
+
+
+@require_POST
+def summary(request, pk):
+    """F610 수집된 전체 댓글 요약 (요약 버튼 클릭 시 비동기 호출, 결과는 DB 에 저장)"""
+    analysis = get_object_or_404(CommentAnalysis, pk=pk)
+    try:
+        analysis.summary = summarize_comments(analysis.stock_name, analysis.raw_comments)
+    except LLMError as e:
+        return JsonResponse({"error": str(e)}, status=502)
+    analysis.save(update_fields=["summary"])
+    return JsonResponse({"summary": analysis.summary})
 
 
 def export_json(request, pk):

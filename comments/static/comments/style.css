@@ -786,6 +786,67 @@ a.crumb:hover { background: var(--hover); }
 /* ==========================================================================
    결과 화면
    ========================================================================== */
+/* AI 요약 카드 (F610) */
+.ai-card {
+  margin-top: 28px;
+  padding: 20px 22px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(135deg, var(--lavender), #F1E4D3 60%, var(--lavender)) border-box;
+  box-shadow: var(--shadow);
+}
+.ai-head { display: flex; align-items: center; gap: 14px; }
+.ai-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--lavender), var(--purple));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(139, 120, 184, 0.35);
+}
+.ai-text { min-width: 0; }
+.ai-title { margin: 0; font-size: 16px; font-weight: 700; }
+.ai-sub { margin-top: 1px; color: var(--text-2); font-size: 13.5px; }
+.ai-head .btn { margin-left: auto; }
+
+.summary-box {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--lavender-soft);
+  font-size: 14.5px;
+  line-height: 1.75;
+  white-space: pre-line;
+  animation: fade-in 0.45s var(--ease) both;
+}
+.summary-box p + p { margin-top: 4px; }
+.summary-box ul { margin: 6px 0 8px; padding-left: 20px; }
+.summary-box li { margin: 3px 0; }
+.summary-box li::marker { color: var(--purple); }
+.summary-box .summary-oneline {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--purple);
+  border-radius: 6px;
+  background: var(--surface);
+  font-weight: 600;
+}
+.summary-box.is-loading { white-space: normal; }
+.skeleton {
+  display: block;
+  height: 12px;
+  margin: 10px 0;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #E9E2F5 25%, #F8F5FC 50%, #E9E2F5 75%);
+  background-size: 200% 100%;
+  animation: shimmer-bg 1.3s linear infinite;
+}
+
 /* IQR */
 .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .stat {

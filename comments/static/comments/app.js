@@ -228,3 +228,70 @@ viewTabs.forEach((tab) => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// F610 댓글 요약 버튼
+// ---------------------------------------------------------------------------
+const summaryButton = document.getElementById("summary-btn");
+if (summaryButton) {
+  const summaryBox = document.getElementById("summary-box");
+  const summaryError = document.getElementById("summary-error");
+  const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
+  let summaryText = summaryBox.textContent.trim();
+
+  // '- ' 로 시작하는 줄은 목록으로, '한줄 요약:' 줄은 강조해서 보여준다.
+  const renderSummary = (text) => {
+    summaryBox.classList.remove("is-loading");
+    summaryBox.replaceChildren();
+    let list = null;
+    for (const line of text.split("\n").map((l) => l.trim()).filter(Boolean)) {
+      const bullet = /^[-•*]\s+/.exec(line);
+      if (bullet) {
+        if (!list) list = summaryBox.appendChild(document.createElement("ul"));
+        list.appendChild(document.createElement("li")).textContent = line.slice(bullet[0].length);
+        continue;
+      }
+      list = null;
+      const p = summaryBox.appendChild(document.createElement("p"));
+      if (/^(\d+[.)]\s*)?한줄\s*요약/.test(line)) p.className = "summary-oneline";
+      p.textContent = line;
+    }
+    summaryBox.hidden = !text;
+  };
+
+  const showSkeleton = () => {
+    summaryBox.classList.add("is-loading");
+    summaryBox.replaceChildren(...["92%", "76%", "84%", "58%"].map((width) => {
+      const line = document.createElement("span");
+      line.className = "skeleton";
+      line.style.width = width;
+      return line;
+    }));
+    summaryBox.hidden = false;
+  };
+
+  if (summaryText) renderSummary(summaryText);
+
+  summaryButton.addEventListener("click", async () => {
+    summaryButton.disabled = true;
+    summaryButton.textContent = "요약 생성 중...";
+    summaryError.hidden = true;
+    showSkeleton();
+    try {
+      const response = await fetch(summaryButton.dataset.url, {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfToken },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      summaryText = data.summary;
+    } catch (err) {
+      summaryError.textContent = `요약 생성에 실패했습니다. ${err.message}`;
+      summaryError.hidden = false;
+    } finally {
+      renderSummary(summaryText);
+      summaryButton.textContent = summaryText ? "요약 다시 생성" : "댓글 요약 보기";
+      summaryButton.disabled = false;
+    }
+  });
+}
