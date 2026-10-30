@@ -10,6 +10,7 @@
 
 {% block actions %}
 <span class="topbar-time">{{ analysis.created_at|timesince }} 전 생성</span>
+<a class="ghost-btn" href="{% url 'comments:json' analysis.pk %}" target="_blank">{% icon 'braces' 14 %}JSON</a>
 {% if analysis.source_url %}
   <a class="ghost-btn" href="{{ analysis.source_url }}" target="_blank" rel="noopener">{% icon 'external' 14 %}토스증권</a>
 {% endif %}
@@ -40,12 +41,38 @@
       <dt>{% icon 'clock' %}생성 일시</dt>
       <dd>{{ analysis.created_at|date:"Y-m-d H:i:s" }}</dd>
     </div>
+    <div class="prop">
+      <dt>{% icon 'link' %}링크</dt>
+      <dd>
+        <a class="link" href="{% url 'comments:json' analysis.pk %}" target="_blank">통합 데이터 JSON 보기</a>
+        {% if analysis.source_url %}<span class="muted">·</span><a class="link" href="{{ analysis.source_url }}" target="_blank" rel="noopener">토스증권 커뮤니티</a>{% endif %}
+      </dd>
+    </div>
   </dl>
 </header>
 {% endblock %}
 
 {% block content %}
-{% include 'comments/_steps.html' with current=5 compact=True n1=analysis.raw_comments|length n2=analysis.candidate_comments|length n3=analysis.cleaned_comments|length n4=analysis.augmented_comments|length %}
+{% include 'comments/_steps.html' with current=6 compact=True n1=analysis.raw_comments|length n2=analysis.candidate_comments|length n3=analysis.cleaned_comments|length n4=analysis.augmented_comments|length n5=analysis.final_comments|length %}
+
+{% with iqr=analysis.iqr_threshold %}
+  <section class="block">
+    <h2 class="block-title">📏 IQR 임계값 <span class="block-note">정제 텍스트 길이 기준</span></h2>
+    <div class="stats">
+      <div class="stat"><span class="stat-label">Q1</span><b class="stat-value">{{ iqr.q1|default_if_none:"-" }}</b></div>
+      <div class="stat"><span class="stat-label">Q3</span><b class="stat-value">{{ iqr.q3|default_if_none:"-" }}</b></div>
+      <div class="stat"><span class="stat-label">IQR</span><b class="stat-value">{{ iqr.iqr|default_if_none:"-" }}</b></div>
+      <div class="stat">
+        <span class="stat-label">이상치 경계</span>
+        <b class="stat-value">{{ iqr.lower_fence|default_if_none:"-" }} ~ {{ iqr.upper_fence|default_if_none:"-" }}</b>
+      </div>
+      <div class="stat stat-accent">
+        <span class="stat-label">적용 길이 범위</span>
+        <b class="stat-value">{{ iqr.min_length }} ~ {{ iqr.max_length }}<span class="stat-unit">자</span></b>
+      </div>
+    </div>
+  </section>
+{% endwith %}
 
 <section class="block">
   <h2 class="block-title">🗂️ 단계별 데이터</h2>
@@ -86,6 +113,18 @@
         <ol class="lane-list">
           {% for comment in analysis.augmented_comments %}
             <li class="card reveal" style="--i: {{ forloop.counter0 }}"><span class="card-num">{{ forloop.counter }}</span><p>{{ comment }}</p></li>
+          {% endfor %}
+        </ol>
+      </section>
+
+      <section class="lane lane-final">
+        <header class="lane-head"><span class="dot dot-final"></span><h3 class="lane-title">최종 결과 ({{ analysis.final_comments|length }}개)</h3></header>
+        <ol class="lane-list">
+          {% for item in analysis.final_items %}
+            <li class="card card-stacked reveal" style="--i: {{ forloop.counter0 }}">
+              <span class="tag tag-{{ item.stage }}">{{ item.label }}</span>
+              <p>{{ item.text }}</p>
+            </li>
           {% endfor %}
         </ol>
       </section>

@@ -786,6 +786,22 @@ a.crumb:hover { background: var(--hover); }
 /* ==========================================================================
    결과 화면
    ========================================================================== */
+/* IQR */
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.stat {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  transition: border-color 0.2s, transform 0.2s var(--ease), box-shadow 0.2s;
+}
+.stat:hover { border-color: var(--lavender); box-shadow: var(--shadow); transform: translateY(-2px); }
+.stat-label { display: block; margin-bottom: 2px; color: var(--text-2); font-size: 12.5px; }
+.stat-value { font-size: 21px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.stat-unit { margin-left: 2px; color: var(--text-2); font-size: 13px; font-weight: 500; }
+.stat-accent { border-color: transparent; background: var(--lavender-soft); }
+.stat-accent .stat-value { color: var(--purple-ink); }
+
 /* 보기 전환 탭 */
 .views { display: flex; align-items: center; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
 .view-tab {

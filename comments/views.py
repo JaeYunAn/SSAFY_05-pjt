@@ -3,13 +3,14 @@ import queue
 import threading
 
 from django.conf import settings
-from django.http import StreamingHttpResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from .models import CommentAnalysis
 from .services.crawler import crawl_comments
+from .services.integration import build_final_dataset
 from .services.llm import augment_comments, find_inappropriate
 from .services.preprocess import find_profanity, preprocess_comments
 
@@ -95,7 +96,7 @@ def _crawl_stream(company_name):
 @require_http_methods(["GET", "POST"])
 def review(request, pk):
     """
-    부적절 댓글 직접 검수 -> 제외할 댓글을 확정하면 증강(F606) 후 DB 에 저장한다.
+    부적절 댓글 직접 검수 -> 제외할 댓글을 확정하면 증강(F606)·통합(F607) 후 DB 에 저장한다.
     """
     analysis = get_object_or_404(CommentAnalysis, pk=pk)
 
@@ -112,6 +113,7 @@ def review(request, pk):
         analysis.review_removed = [t for i, t in enumerate(analysis.candidate_comments) if i in excluded]
         analysis.cleaned_comments = cleaned
         analysis.augmented_comments = augmented
+        analysis.final_comments = build_final_dataset(cleaned, augmented)
         analysis.status = CommentAnalysis.Status.DONE
         analysis.save()
         return redirect("comments:result", pk=pk)
@@ -130,3 +132,9 @@ def result(request, pk):
     if not analysis.is_done:
         return redirect("comments:review", pk=pk)
     return render(request, "comments/result.html", {"analysis": analysis})
+
+
+def export_json(request, pk):
+    """F607 통합 결과 집합(단계별 데이터 포함)을 JSON 으로 내려준다."""
+    analysis = get_object_or_404(CommentAnalysis, pk=pk)
+    return JsonResponse(analysis.to_dict(), json_dumps_params={"ensure_ascii": False, "indent": 2})

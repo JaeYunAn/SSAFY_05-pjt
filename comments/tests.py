@@ -11,6 +11,7 @@ from django.urls import reverse
 from .models import CommentAnalysis
 from .services import llm
 from .services.crawler import CrawlResult, _to_stock_code
+from .services.integration import build_final_dataset
 from .services.preprocess import clean_text, compute_iqr_threshold, find_profanity, preprocess_comments
 
 
@@ -88,6 +89,13 @@ class LLMTests(TestCase):
             llm.chat("hi")
 
 
+class IntegrationTests(TestCase):
+    def test_build_final_dataset(self):
+        final = build_final_dataset(["a", "b"], ["A", "B"])
+        self.assertEqual(len(final), 4)
+        self.assertEqual(final[2], {"stage": "augmented", "text": "A", "source": 0})
+
+
 def read_events(response):
     body = b"".join(response.streaming_content).decode()
     return [json.loads(line) for line in body.splitlines() if line.strip()]
@@ -125,6 +133,23 @@ class ViewTests(TestCase):
             candidate_comments=["댓글 하나", "욕설 댓글", "댓글 셋"], moderation={"llm_flagged": [1]},
             iqr_threshold=compute_iqr_threshold([5, 5, 4]),
         )
+
+    @patch("comments.views.augment_comments", side_effect=lambda c: [f"{t} 증강" for t in c])
+    def test_review_excludes_checked_and_saves_final(self, _augment):
+        analysis = self._make_analysis()
+        response = self.client.post(reverse("comments:review", args=[analysis.pk]), {"exclude": ["1"]})
+        self.assertRedirects(response, reverse("comments:result", args=[analysis.pk]))
+
+        analysis.refresh_from_db()
+        self.assertEqual(analysis.status, CommentAnalysis.Status.DONE)
+        self.assertEqual(analysis.review_removed, ["욕설 댓글"])
+        self.assertEqual(analysis.cleaned_comments, ["댓글 하나", "댓글 셋"])
+        self.assertEqual(analysis.augmented_comments, ["댓글 하나 증강", "댓글 셋 증강"])
+        self.assertEqual(len(analysis.final_comments), 4)
+
+        page = self.client.get(reverse("comments:result", args=[analysis.pk]))
+        self.assertContains(page, "최종 결과 (4개)")
+        self.assertContains(page, "댓글 셋 증강")
 
     def test_review_page_prechecks_flagged(self):
         analysis = self._make_analysis()

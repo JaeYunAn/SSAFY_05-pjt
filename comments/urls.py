@@ -9,4 +9,5 @@ urlpatterns = [
     path("company/", views.company, name="company"),
     path("<int:pk>/review/", views.review, name="review"),
     path("<int:pk>/", views.result, name="result"),
+    path("<int:pk>/json/", views.export_json, name="json"),
 ]

@@ -4,6 +4,7 @@
     crawler.py     : F603 회사 검색·선택, F604 커뮤니티 댓글 수집 (Selenium)
     preprocess.py  : F605 정규식 기반 정제, 길이 필터링, IQR 임계값 계산
     llm.py         : F605 부적절 댓글 판별, F606 증강, F610 요약 (GMS API)
+    integration.py : F607 정제 + 증강 데이터 통합
 
 각 단계는 서로 독립적인 함수로 작성되어 있어 뷰(views.py)뿐 아니라
 쉘이나 다른 스크립트에서도 그대로 재사용할 수 있다.

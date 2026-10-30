@@ -1,5 +1,7 @@
 from django.db import models
 
+from .services.integration import STAGE_LABELS
+
 
 class CommentAnalysis(models.Model):
     """
@@ -57,6 +59,33 @@ class CommentAnalysis(models.Model):
             for i, text in enumerate(self.candidate_comments)
         ]
 
+    def final_items(self):
+        """결과 화면용: 통합 결과에 단계 이름(정제/증강)을 붙여 반환"""
+        return [dict(item, label=STAGE_LABELS.get(item["stage"], item["stage"])) for item in self.final_comments]
+
     def augmentation_pairs(self):
         """결과 화면 비교 보기용: 정제 댓글과 그 댓글로 만든 증강 문장을 짝지어 반환"""
         return list(zip(self.cleaned_comments, self.augmented_comments))
+
+    def to_dict(self):
+        """통합 결과 집합 전체를 JSON 으로 내보내기 위한 딕셔너리"""
+        return {
+            "id": self.pk,
+            "query": self.query,
+            "stock_name": self.stock_name,
+            "stock_code": self.stock_code,
+            "source_url": self.source_url,
+            "status": self.status,
+            "created_at": self.created_at.isoformat(),
+            "iqr_threshold": self.iqr_threshold,
+            "stages": {
+                "raw": self.raw_comments,
+                "preprocess_removed": self.preprocess_removed,
+                "moderation": self.moderation,
+                "review_removed": self.review_removed,
+                "cleaned": self.cleaned_comments,
+                "augmented": self.augmented_comments,
+            },
+            "final": self.final_comments,
+            "summary": self.summary,
+        }
