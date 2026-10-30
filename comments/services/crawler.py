@@ -35,6 +35,9 @@ SEARCH_INPUT = "input[type='search']"
 SEARCH_RESULT_ROW = "[data-section-name='종목'] a[data-parent-name='ProductListRow']"
 SEARCH_ALL_SECTION = "[data-section-name='전체']"
 NO_RESULT_TEXT = "검색결과가 없어요"
+COMMUNITY_TAB = "button[role='tab'][data-content-value='커뮤니티']"
+COMMUNITY_POST = "[data-section-name='커뮤니티__게시글'][data-post-anchor-id]"
+POST_BODY = "span._1xixuox1"
 
 # 검색창 상태(결과 목록 / 결과 없음 / 아직 로딩 중)를 한 번에 확인하는 스크립트
 SEARCH_STATE_JS = """
@@ -45,6 +48,23 @@ if (rows.length) {
 const all = document.querySelector(arguments[1]);
 if (all && all.innerText.includes(arguments[2])) return {empty: true};
 return null;
+"""
+
+# 화면에 로드된 게시글의 id 와 본문 텍스트를 추출하는 스크립트
+EXTRACT_POSTS_JS = """
+return Array.from(document.querySelectorAll(arguments[0])).map(post => {
+    const body = post.querySelector(arguments[1]);
+    let text;
+    if (body) {
+        text = body.innerText;
+    } else {
+        // 본문 클래스명이 바뀐 경우: 작성자/버튼 영역을 제외한 나머지 텍스트를 사용
+        const clone = post.cloneNode(true);
+        clone.querySelectorAll('label, button, address').forEach(el => el.remove());
+        text = clone.textContent;
+    }
+    return {id: post.getAttribute('data-post-anchor-id'), text: (text || '').trim()};
+});
 """
 
 ProgressCallback = Callable[[str], None]
@@ -140,9 +160,57 @@ def search_company(driver, company_name: str, timeout: int = 15) -> dict:
     }
 
 
+def open_community(driver, stock_href: str, timeout: int = 15) -> None:
+    """종목 상세 페이지에서 '커뮤니티' 탭으로 이동한다."""
+    try:
+        tab = WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, COMMUNITY_TAB))
+        )
+        # 첫 방문 시 뜨는 안내 말풍선이 탭을 가리는 경우가 있어 JS 로 클릭한다.
+        driver.execute_script("arguments[0].click();", tab)
+        WebDriverWait(driver, 10).until(EC.url_contains("/community"))
+    except TimeoutException:
+        # 탭을 찾지 못하면 커뮤니티 주소로 직접 이동
+        base = re.sub(r"/order/?$", "", urljoin(TOSS_HOME_URL, stock_href))
+        driver.get(base + "/community")
+
+
+def collect_comments(driver, limit: int = 20, timeout: int = 15,
+                     on_progress: Optional[ProgressCallback] = None) -> list:
+    """커뮤니티 탭의 게시글 텍스트를 limit 개까지 수집한다. (스크롤로 추가 로딩)"""
+    try:
+        WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, COMMUNITY_POST))
+        )
+    except TimeoutException:
+        return []
+
+    collected = {}  # 게시글 id -> 텍스트 (중복 수집 방지, 순서 유지)
+    idle_rounds = 0
+    while len(collected) < limit and idle_rounds < 3:
+        before = len(collected)
+        for post in driver.execute_script(EXTRACT_POSTS_JS, COMMUNITY_POST, POST_BODY):
+            collected.setdefault(post["id"], post["text"])
+        if on_progress:
+            on_progress(f"댓글 수집 중... ({min(len(collected), limit)}/{limit})")
+        if len(collected) >= limit:
+            break
+        idle_rounds = idle_rounds + 1 if len(collected) == before else 0
+
+        # 마지막 게시글까지 스크롤하여 다음 게시글을 불러온다.
+        driver.execute_script(
+            "const posts = document.querySelectorAll(arguments[0]);"
+            "if (posts.length) posts[posts.length - 1].scrollIntoView({block: 'end'});",
+            COMMUNITY_POST,
+        )
+        time.sleep(1.2)
+
+    return list(collected.values())[:limit]
+
+
 def crawl_comments(company_name: str, limit: int = 20, headless: bool = True,
                    on_progress: Optional[ProgressCallback] = None) -> CrawlResult:
-    """회사 검색 -> 최상단 종목 선택 과정을 수행한다."""
+    """회사 검색 -> 최상단 종목 선택 -> 커뮤니티 댓글 수집 전체 과정을 수행한다."""
     def report(message):
         if on_progress:
             on_progress(message)
@@ -158,11 +226,18 @@ def crawl_comments(company_name: str, limit: int = 20, headless: bool = True,
         stock = search_company(driver, company_name)
         report(f"검색 결과 최상단 종목 '{stock['stock_name']}' 선택")
 
+        report("커뮤니티 탭으로 이동하는 중...")
+        open_community(driver, stock["href"])
+
+        comments = collect_comments(driver, limit=limit, on_progress=on_progress)
+        report(f"댓글 {len(comments)}개 수집 완료")
+
         return CrawlResult(
             query=company_name,
             stock_name=stock["stock_name"],
             stock_code=stock["stock_code"],
             url=driver.current_url,
+            comments=comments,
         )
     except TimeoutException as e:
         raise CrawlError("토스증권 페이지 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.") from e
