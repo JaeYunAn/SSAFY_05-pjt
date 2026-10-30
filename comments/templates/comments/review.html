@@ -49,6 +49,15 @@
 {% block content %}
 {% include 'comments/_steps.html' with current=3 compact=True n1=analysis.raw_comments|length n2=items|length %}
 
+{% if analysis.moderation.llm_error %}
+  <div class="callout callout-warning" data-icon="⚠️">
+    <div>
+      LLM 부적절 댓글 검사에 실패했습니다. ({{ analysis.moderation.llm_error }})<br>
+      욕설 키워드 감지 결과만 표시되어 있으니 아래 목록을 직접 확인해 주세요.
+    </div>
+  </div>
+{% endif %}
+
 <div class="callout callout-info" data-icon="💡">
   <div>
     <span class="tag tag-red">LLM 판정</span> 또는 <span class="tag tag-orange">욕설 키워드</span>가 붙은 댓글은

@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from .models import CommentAnalysis
 from .services import llm
-from .services.crawler import CrawlResult, _to_stock_code
+from .services.crawler import CompanyNotFoundError, CrawlResult, _to_stock_code
 from .services.integration import build_final_dataset
 from .services.preprocess import clean_text, compute_iqr_threshold, find_profanity, preprocess_comments
 
@@ -133,6 +133,26 @@ class ViewTests(TestCase):
         self.assertEqual(analysis.status, CommentAnalysis.Status.REVIEW)
         self.assertEqual(events[-1]["redirect"], reverse("comments:review", args=[analysis.pk]))
 
+    @patch("comments.views.find_inappropriate", side_effect=llm.LLMError("GMS_KEY 가 설정되지 않았습니다."))
+    @patch("comments.views.crawl_comments")
+    def test_stream_continues_when_llm_moderation_fails(self, crawl, _find):
+        crawl.return_value = CrawlResult(query="삼성", stock_name="삼성전자", stock_code="005930",
+                                         url="https://example.com", comments=["존나 떨어지네 진짜"])
+        events = read_events(self.client.get(reverse("comments:company"), {"company_name": "삼성"}))
+        self.assertEqual(events[-1]["type"], "done")
+        analysis = CommentAnalysis.objects.get()
+        self.assertIn("GMS_KEY", analysis.moderation["llm_error"])
+        self.assertEqual(analysis.moderation["keyword_flagged"], [0])
+
+        page = self.client.get(reverse("comments:review", args=[analysis.pk]))
+        self.assertContains(page, "LLM 부적절 댓글 검사에 실패했습니다")
+
+    @patch("comments.views.crawl_comments", side_effect=CompanyNotFoundError("'없는회사'에 대한 검색 결과가 없습니다."))
+    def test_stream_reports_company_not_found(self, _crawl):
+        events = read_events(self.client.get(reverse("comments:company"), {"company_name": "없는회사"}))
+        self.assertEqual(events[-1], {"type": "error", "message": "'없는회사'에 대한 검색 결과가 없습니다."})
+        self.assertFalse(CommentAnalysis.objects.exists())
+
     def _make_analysis(self):
         return CommentAnalysis.objects.create(
             query="삼성", stock_name="삼성전자", raw_comments=["원본1", "원본2", "원본3"],
@@ -156,6 +176,14 @@ class ViewTests(TestCase):
         page = self.client.get(reverse("comments:result", args=[analysis.pk]))
         self.assertContains(page, "최종 결과 (4개)")
         self.assertContains(page, "댓글 셋 증강")
+
+    @patch("comments.views.augment_comments", side_effect=llm.LLMError("GMS_KEY 가 설정되지 않았습니다."))
+    def test_review_keeps_status_when_augment_fails(self, _augment):
+        analysis = self._make_analysis()
+        response = self.client.post(reverse("comments:review", args=[analysis.pk]), {"exclude": []}, follow=True)
+        self.assertContains(response, "데이터 증강에 실패했습니다")
+        analysis.refresh_from_db()
+        self.assertEqual(analysis.status, CommentAnalysis.Status.REVIEW)
 
     def test_review_page_prechecks_flagged(self):
         analysis = self._make_analysis()

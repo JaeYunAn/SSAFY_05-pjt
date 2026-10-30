@@ -19,7 +19,7 @@ document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
 document.querySelector("[data-sidebar-close]")?.addEventListener("click", () => root.classList.remove("sidebar-open"));
 
 // ---------------------------------------------------------------------------
-// F601 회사명 입력 / F603 크롤링 진행 상황 스트리밍
+// F601 회사명 입력 / F603 크롤링 진행 상황 스트리밍 / F611 예외 안내
 // ---------------------------------------------------------------------------
 const searchForm = document.getElementById("search-form");
 if (searchForm) {
@@ -30,6 +30,7 @@ if (searchForm) {
   const progressPercent = document.getElementById("progress-percent");
   const progressBar = document.getElementById("progress-bar");
   const progressLog = document.getElementById("progress-log");
+  const searchError = document.getElementById("search-error");
   const flowSteps = [...document.querySelectorAll("#flow-steps .step")];
 
   let percent = 0;
@@ -114,6 +115,13 @@ if (searchForm) {
     }
   };
 
+  const showSearchError = (message) => {
+    progressBox.hidden = true;
+    markStep(currentStage, "error");
+    searchError.textContent = message;
+    searchError.hidden = false;
+  };
+
   const handleEvent = (event) => {
     if (event.type === "progress") {
       if (event.stage) {
@@ -122,6 +130,8 @@ if (searchForm) {
       }
       addProgress(event.message);
       updatePercent(event);
+    } else if (event.type === "error") {
+      showSearchError(event.message);
     } else if (event.type === "done") {
       progressLog.lastElementChild?.classList.add("is-done");
       setPercent(100);
@@ -138,6 +148,7 @@ if (searchForm) {
     }
 
     setSearching(true);
+    searchError.hidden = true;
     progressLog.replaceChildren();
     progressBox.hidden = false;
     progressCurrent.textContent = "댓글 수집 중...";
@@ -147,6 +158,7 @@ if (searchForm) {
     currentStage = "collect";
     markStep(currentStage);
 
+    let finished = false;
     try {
       const url = `${searchForm.action}?${new URLSearchParams({ company_name: companyName })}`;
       const response = await fetch(url);
@@ -165,11 +177,13 @@ if (searchForm) {
         for (const line of lines) {
           if (!line.trim()) continue;
           const event = JSON.parse(line);
+          if (event.type === "done" || event.type === "error") finished = true;
           handleEvent(event);
         }
       }
+      if (!finished) showSearchError("서버 응답이 중간에 끊겼습니다. 서버 터미널의 오류 메시지를 확인해 주세요.");
     } catch (err) {
-      progressCurrent.textContent = `서버와 통신 중 오류가 발생했습니다. (${err.message})`;
+      showSearchError(`서버와 통신 중 오류가 발생했습니다. (${err.message})`);
     } finally {
       setSearching(false);
     }

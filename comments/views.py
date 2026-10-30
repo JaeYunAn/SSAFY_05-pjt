@@ -3,15 +3,16 @@ import queue
 import threading
 
 from django.conf import settings
+from django.contrib import messages
 from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import CommentAnalysis
-from .services.crawler import crawl_comments
+from .services.crawler import CrawlError, crawl_comments
 from .services.integration import build_final_dataset
-from .services.llm import augment_comments, find_inappropriate, summarize_comments
+from .services.llm import LLMError, augment_comments, find_inappropriate, summarize_comments
 from .services.preprocess import find_profanity, preprocess_comments
 
 
@@ -27,6 +28,7 @@ def company(request):
     응답은 한 줄에 하나의 JSON 이벤트(NDJSON)이다.
         {"type": "progress", "message": "...", "stage": "..."}  진행 상황 (stage: collect / preprocess / review)
         {"type": "error",    "message": "..."}  예외 상황 안내 (F611)
+        {"type": "done",     "redirect": "..."} 완료 -> 검수 화면으로 이동
     """
     company_name = request.GET.get("company_name", "").strip()
     if not company_name:
@@ -58,6 +60,10 @@ def _crawl_stream(company_name):
                 headless=settings.CRAWLER_HEADLESS,
                 on_progress=progress.put,
             )
+        except CrawlError as e:
+            outcome["error"] = str(e)
+        except Exception as e:  # 예상하지 못한 셀레니움 오류 등
+            outcome["error"] = f"댓글 수집 중 오류가 발생했습니다: {e}"
         finally:
             progress.put(None)
 
@@ -65,15 +71,29 @@ def _crawl_stream(company_name):
     while (message := progress.get()) is not None:
         yield _event("progress", message=message, stage="collect")
 
+    if "error" in outcome:
+        yield _event("error", message=outcome["error"])
+        return
     crawled = outcome["result"]
 
     # 2) 정규식 기반 전처리 (F605)
     yield _event("progress", message="전처리 중... (특수문자·불필요 패턴 제거, 길이 필터링)", stage="preprocess")
     pre = preprocess_comments(crawled.comments)
+    if not pre.cleaned:
+        yield _event("error", message=(
+            f"'{crawled.stock_name}' 댓글 {len(crawled.comments)}개를 수집했지만 "
+            "전처리 후 남은 댓글이 없습니다. 다른 회사로 다시 시도해 주세요."
+        ))
+        return
 
     # 3) 부적절 댓글 판정 (F605) - LLM 판정 + 욕설 키워드 감지, 최종 제외 여부는 사용자가 검수 화면에서 결정
     yield _event("progress", message="GMS로 부적절한 댓글을 검사하는 중...", stage="review")
-    llm_flagged = find_inappropriate(pre.cleaned)
+    llm_flagged, llm_error = [], ""
+    try:
+        llm_flagged = find_inappropriate(pre.cleaned)
+    except LLMError as e:
+        llm_error = str(e)
+        yield _event("progress", message=f"⚠ LLM 검사 실패 - 검수 화면에서 직접 확인해 주세요. ({e})", stage="review")
 
     analysis = CommentAnalysis.objects.create(
         query=company_name,
@@ -86,6 +106,7 @@ def _crawl_stream(company_name):
         moderation={
             "llm_flagged": llm_flagged,
             "keyword_flagged": find_profanity(pre.cleaned),
+            "llm_error": llm_error,
         },
         iqr_threshold=pre.iqr,
     )
@@ -107,8 +128,15 @@ def review(request, pk):
                 excluded.add(int(value))
 
         cleaned = [t for i, t in enumerate(analysis.candidate_comments) if i not in excluded]
+        if not cleaned:
+            messages.error(request, "모든 댓글을 제외하면 증강할 데이터가 없습니다. 최소 1개 이상의 댓글을 남겨 주세요.")
+            return redirect("comments:review", pk=pk)
 
-        augmented = augment_comments(cleaned)
+        try:
+            augmented = augment_comments(cleaned)
+        except LLMError as e:
+            messages.error(request, f"데이터 증강에 실패했습니다. {e}")
+            return redirect("comments:review", pk=pk)
 
         analysis.review_removed = [t for i, t in enumerate(analysis.candidate_comments) if i in excluded]
         analysis.cleaned_comments = cleaned

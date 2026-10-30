@@ -71,7 +71,15 @@ ProgressCallback = Callable[[str], None]
 
 
 class CrawlError(Exception):
-    """크롤링 중 사용자에게 안내해야 하는 오류"""
+    """크롤링 중 사용자에게 안내해야 하는 오류 (F611)"""
+
+
+class CompanyNotFoundError(CrawlError):
+    """검색 결과가 없는 경우"""
+
+
+class CommentsNotFoundError(CrawlError):
+    """커뮤니티에 댓글이 없는 경우"""
 
 
 @dataclass
@@ -144,7 +152,7 @@ def search_company(driver, company_name: str, timeout: int = 15) -> dict:
         raise CrawlError("토스증권 검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.")
 
     if state.get("empty"):
-        raise CrawlError(f"'{company_name}'에 대한 검색 결과가 없습니다. 회사명을 다시 확인해 주세요.")
+        raise CompanyNotFoundError(f"'{company_name}'에 대한 검색 결과가 없습니다. 회사명을 다시 확인해 주세요.")
 
     # 4) 최상단 종목은 자동으로 포커싱되어 있으므로 Enter 로 선택한다.
     search_input.send_keys(Keys.ENTER)
@@ -230,6 +238,8 @@ def crawl_comments(company_name: str, limit: int = 20, headless: bool = True,
         open_community(driver, stock["href"])
 
         comments = collect_comments(driver, limit=limit, on_progress=on_progress)
+        if not comments:
+            raise CommentsNotFoundError(f"'{stock['stock_name']}' 커뮤니티에 등록된 댓글이 없습니다.")
         report(f"댓글 {len(comments)}개 수집 완료")
 
         return CrawlResult(

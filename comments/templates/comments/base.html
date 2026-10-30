@@ -54,6 +54,10 @@
     <article class="page {% block page_class %}{% endblock %}">
       {% block page_head %}{% endblock %}
 
+      {% for message in messages %}
+        <div class="callout callout-{{ message.tags }}" role="alert" data-icon="{% if message.level_tag == 'error' %}⚠️{% else %}💬{% endif %}">{{ message }}</div>
+      {% endfor %}
+
       {% block content %}{% endblock %}
     </article>
   </div>
